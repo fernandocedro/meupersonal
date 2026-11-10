@@ -8,6 +8,24 @@ const navStudent = [["dashboard","Meu painel"],["workouts","Meus treinos"],["mes
 const id = () => "id-" + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 const esc = (v="") => String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const initials = name => (name||"MP").split(" ").slice(0,2).map(x=>x[0]).join("").toUpperCase();
+const isStaff = () => currentUser.role === "admin" || currentUser.role === "teacher";
+const formatDateTime = value => {
+  const date = new Date(value.includes(" ") ? `${value.replace(" ", "T")}Z` : value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString("pt-BR");
+};
+const timestampValue = value => new Date(value.includes(" ") ? `${value.replace(" ", "T")}Z` : value).getTime();
+function orderWorkouts(workouts, finalized) {
+  const originalOrder = new Map(workouts.map((workout, index) => [workout.id, index]));
+  const completionByWorkout = new Map(finalized.map(completion => [completion.workoutId, completion]));
+  return [...workouts].sort((a, b) => {
+    const aFinished = completionByWorkout.get(a.id);
+    const bFinished = completionByWorkout.get(b.id);
+    if (aFinished && bFinished) return timestampValue(aFinished.completedAt) - timestampValue(bFinished.completedAt);
+    if (aFinished) return 1;
+    if (bFinished) return -1;
+    return originalOrder.get(a.id) - originalOrder.get(b.id);
+  });
+}
 
 function toast(msg){
   const el = $("#toast");
@@ -61,7 +79,7 @@ async function showApp() {
   $("#app-view").classList.remove("hidden");
   $("#side-name").textContent = currentUser.name;
   $("#topbar-name").textContent = currentUser.name;
-  $("#side-role").textContent = currentUser.role === "admin" ? "Administrador" : "Aluno";
+  $("#side-role").textContent = isStaff() ? "Professor" : "Aluno";
   
   const avatarHtml = currentUser.photo ? `<img src="${currentUser.photo}">` : initials(currentUser.name);
   $("#side-avatar").innerHTML = avatarHtml;
@@ -72,7 +90,7 @@ async function showApp() {
 }
 
 function renderNav() {
-  const nav = currentUser.role === "admin" ? navAdmin : navStudent;
+  const nav = isStaff() ? navAdmin : navStudent;
   $("#navigation").innerHTML = nav.map(([key, label]) => 
     `<button class="nav-btn ${currentPage === key ? "active" : ""}" data-page="${key}">${label}</button>`
   ).join("");
@@ -83,15 +101,15 @@ async function navigate(page) {
   currentPage = page;
   renderNav();
   const titles = {
-    dashboard: currentUser.role === "admin" ? "Visão geral" : "Meu painel",
+    dashboard: isStaff() ? "Visão geral" : "Meu painel",
     students: "Alunos",
-    workouts: currentUser.role === "admin" ? "Gestão de treinos" : "Meus treinos",
+    workouts: isStaff() ? "Gestão de treinos" : "Meus treinos",
     messages: "Mensagens",
     packages: "Pacotes",
     profile: "Meu cadastro"
   };
   $("#page-title").textContent = titles[page] || "Meu personal";
-  $("#page-eyebrow").textContent = currentUser.role === "admin" ? "ADMINISTRAÇÃO" : "ÁREA DO ALUNO";
+  $("#page-eyebrow").textContent = isStaff() ? "ÁREA DO PROFESSOR" : "ÁREA DO ALUNO";
   
   const pages = {
     dashboard: dashboardPage,
@@ -106,7 +124,7 @@ async function navigate(page) {
 }
 
 async function dashboardPage() {
-  if (currentUser.role === "admin") {
+  if (isStaff()) {
     await adminDashboard();
   } else {
     await studentDashboard();
@@ -118,12 +136,14 @@ async function adminDashboard() {
   const students = users.filter(u => u.role === "student");
   const workouts = await Store.all("workouts");
   const done = await Store.all("completions");
+  const finalized = await Store.all("workout-completions");
 
   $("#page-content").innerHTML = `
     <div class="grid">
       <div class="stat"><span>Alunos cadastrados</span><strong>${students.length}</strong><em>Base de alunos</em></div>
       <div class="stat"><span>Fichas de treino</span><strong>${workouts.length}</strong><em>Treinos cadastrados</em></div>
       <div class="stat"><span>Exercícios concluídos</span><strong>${done.length}</strong><em>Registros de execução</em></div>
+      <div class="stat"><span>Treinos finalizados</span><strong>${finalized.length}</strong><em>Conclusões registradas</em></div>
       <div class="stat"><span>Alunos ativos</span><strong>${students.filter(u => u.status === "Ativo").length}</strong><em>Acesso liberado</em></div>
     </div>
     <div class="section-head"><h2>Alunos recentes</h2><button class="btn primary" id="quick-add">+ Novo aluno</button></div>
@@ -134,8 +154,12 @@ async function adminDashboard() {
 
 async function studentDashboard() {
   const workoutsAll = await Store.all("workouts");
-  const workouts = workoutsAll.filter(w => w.userId === currentUser.id);
   const done = await Store.all("completions");
+  const [finalized, starts] = await Promise.all([
+    Store.all("workout-completions"),
+    Store.all("workout-starts")
+  ]);
+  const workouts = orderWorkouts(workoutsAll.filter(w => w.userId === currentUser.id), finalized);
   const mine = done.filter(c => c.userId === currentUser.id);
   const exercises = workouts.reduce((n, w) => n + (w.exercises ? w.exercises.length : 0), 0);
   const completed = mine.length;
@@ -148,7 +172,7 @@ async function studentDashboard() {
       <div class="stat"><span>Seu peso</span><strong>${esc(currentUser.weight || "—")} <small>kg</small></strong><em>Último cadastro</em></div>
     </div>
     <div class="section-head"><h2>Seus treinos</h2><button class="btn secondary" id="see-workouts">Ver todos</button></div>
-    ${workouts.length ? `<div class="workout-list">${workouts.map(w => workoutSummary(w, mine)).join("")}</div>` : `<div class="empty">Seu personal ainda não cadastrou um treino para você.</div>`}
+    ${workouts.length ? `<div class="workout-list">${workouts.map(w => workoutSummary(w, mine, finalized, starts)).join("")}</div>` : `<div class="empty">Seu personal ainda não cadastrou um treino para você.</div>`}
   `;
   $("#see-workouts").onclick = () => navigate("workouts");
 }
@@ -196,7 +220,11 @@ async function studentsPage() {
 
 function bindStudentActions() {
   document.querySelectorAll("[data-edit-user]").forEach(b => b.onclick = () => openStudentForm(b.dataset.editUser));
-  document.querySelectorAll("[data-user-workout]").forEach(b => b.onclick = () => openWorkoutForm(b.dataset.userWorkout));
+  document.querySelectorAll("[data-user-workout]").forEach(b => b.onclick = async () => {
+    const studentId = b.dataset.userWorkout;
+    await navigate("workouts");
+    await openWorkoutForm(studentId);
+  });
 }
 
 async function openStudentForm(uid) {
@@ -269,10 +297,19 @@ function fileToData(file) {
 }
 
 async function workoutsPage() {
-  const admin = currentUser.role === "admin";
+  const admin = isStaff();
   const workoutsAll = await Store.all("workouts");
-  const workouts = admin ? workoutsAll : workoutsAll.filter(w => w.userId === currentUser.id);
   const users = await Store.all("users");
+  const [completions, finalized, starts] = await Promise.all([
+    Store.all("completions"),
+    Store.all("workout-completions"),
+    Store.all("workout-starts")
+  ]);
+  const workoutList = admin ? workoutsAll : workoutsAll.filter(w => w.userId === currentUser.id);
+  const workouts = orderWorkouts(workoutList, finalized);
+  const workoutCards = workouts.map(w => admin
+    ? adminWorkoutCard(w, users, finalized, starts)
+    : studentWorkoutCard(w, completions, finalized, starts));
 
   $("#page-content").innerHTML = `
     <div class="section-head">
@@ -280,7 +317,7 @@ async function workoutsPage() {
       ${admin ? '<button class="btn primary" id="new-workout">+ Criar treino</button>' : ""}
     </div>
     <div class="workout-list">
-      ${workouts.length ? workouts.map(w => admin ? adminWorkoutCard(w, users) : studentWorkoutCard(w)).join("") : `<div class="empty">${admin ? "Nenhuma ficha cadastrada." : "Nenhum treino disponível no momento."}</div>`}
+      ${workouts.length ? workoutCards.join("") : `<div class="empty">${admin ? "Nenhuma ficha cadastrada." : "Nenhum treino disponível no momento."}</div>`}
     </div>
     <div class="panel hidden" id="workout-form-panel">
       <h2 id="workout-form-title">Criar ficha</h2>
@@ -318,11 +355,14 @@ async function workoutsPage() {
   } else {
     document.querySelectorAll("[data-complete]").forEach(c => c.onchange = () => toggleCompletion(c.dataset.workout, c.dataset.exercise, c.checked));
     document.querySelectorAll("[data-video]").forEach(b => b.onclick = () => window.open(b.dataset.video, "_blank", "noopener"));
+    document.querySelectorAll("[data-finish-workout]").forEach(b => b.onclick = () => finishWorkout(b.dataset.finishWorkout, b));
   }
 }
 
-function adminWorkoutCard(w, users) {
+function adminWorkoutCard(w, users, finalized, starts) {
   const u = users.find(x => x.id === w.userId);
+  const completion = finalized.find(item => item.workoutId === w.id);
+  const start = starts.find(item => item.workoutId === w.id);
   return `
     <div class="panel">
       <div class="section-head">
@@ -336,19 +376,24 @@ function adminWorkoutCard(w, users) {
         </div>
       </div>
       <p class="muted">${w.exercises?.length || 0} exercício(s) · ${esc(w.notes || "Sem orientações")}</p>
+      ${start ? `<p class="muted">Iniciado em ${esc(formatDateTime(start.startedAt))}</p>` : ""}
+      ${completion ? `<p class="pill">Terminado em ${esc(formatDateTime(completion.completedAt))}</p>` : ""}
     </div>
   `;
 }
 
-async function studentWorkoutCard(w) {
-  const completions = await Store.all("completions");
+function studentWorkoutCard(w, completions, finalized, starts) {
   const done = completions.filter(c => c.userId === currentUser.id && c.workoutId === w.id);
   const exercises = w.exercises || [];
+  const completion = finalized.find(item => item.workoutId === w.id && item.userId === currentUser.id);
+  const start = starts.find(item => item.workoutId === w.id && item.userId === currentUser.id);
+  const allChecked = exercises.length > 0 && exercises.every(exercise => done.some(item => item.exerciseId === exercise.id));
 
   return `
     <div class="panel">
       <h2>${esc(w.title)}</h2>
       <small>${esc(w.day || "")}</small>
+      ${start ? `<p class="muted">Iniciado em ${esc(formatDateTime(start.startedAt))}</p>` : ""}
       <div class="progress"><span style="width:${exercises.length ? (done.filter(c => exercises.some(e => e.id === c.exerciseId)).length / exercises.length) * 100 : 0}%"></span></div>
       <div class="workout-list">
         ${exercises.map(e => {
@@ -361,24 +406,29 @@ async function studentWorkoutCard(w) {
                 <p>${esc(e.sets)} séries × ${esc(e.reps)} repetições · descanso ${esc(e.rest || "—")}</p>
               </div>
               <button class="btn secondary" data-video="${esc(e.video)}">Vídeo</button>
-              <input class="check" type="checkbox" aria-label="Marcar ${esc(e.name)} como concluído" data-complete data-workout="${w.id}" data-exercise="${e.id}" ${checked ? "checked" : ""}>
+              <input class="check" type="checkbox" aria-label="Marcar ${esc(e.name)} como concluído" data-complete data-workout="${w.id}" data-exercise="${e.id}" ${checked ? "checked" : ""} ${completion ? "disabled" : ""}>
             </div>
           `;
         }).join("")}
       </div>
       ${w.notes ? `<p class="muted">${esc(w.notes)}</p>` : ""}
+      ${completion ? `<p class="pill">Treino terminado em ${esc(formatDateTime(completion.completedAt))}</p>` : allChecked ? `<button type="button" class="btn primary" data-finish-workout="${w.id}">Terminar treino</button>` : ""}
     </div>
   `;
 }
 
-function workoutSummary(w, mine) {
+function workoutSummary(w, mine, finalized, starts) {
   const completed = mine.filter(c => c.workoutId === w.id).length;
   const total = w.exercises?.length || 0;
+  const finished = finalized.find(item => item.workoutId === w.id && item.userId === currentUser.id);
+  const start = starts.find(item => item.workoutId === w.id && item.userId === currentUser.id);
   return `
     <div class="panel">
       <h2>${esc(w.title)}</h2>
       <p class="muted">${esc(w.day || "")}</p>
       <span class="pill">${completed}/${total} exercícios concluídos</span>
+      ${start ? `<p class="muted">Iniciado em ${esc(formatDateTime(start.startedAt))}</p>` : ""}
+      ${finished ? `<p class="pill">Treino terminado em ${esc(formatDateTime(finished.completedAt))}</p>` : ""}
     </div>
   `;
 }
@@ -438,16 +488,22 @@ async function saveWorkout(e) {
   const wid = $("#workout-id").value;
   const obj = {
     userId: $("#w-user").value,
+    teacherId: currentUser.id,
     title: $("#w-title").value,
     day: $("#w-day").value,
     notes: $("#w-notes").value,
     exercises
   };
 
+  let result;
   if (wid) {
-    await Store.update("workouts", wid, obj);
+    result = await Store.update("workouts", wid, obj);
   } else {
-    await Store.add("workouts", { id: id(), ...obj });
+    result = await Store.add("workouts", { id: id(), ...obj });
+  }
+  if (!result?.success) {
+    toast("Não foi possível salvar o treino.");
+    return;
   }
 
   toast("Treino salvo.");
@@ -458,8 +514,9 @@ async function toggleCompletion(wid, eid, checked) {
   const completions = await Store.all("completions");
   const existing = completions.find(c => c.userId === currentUser.id && c.workoutId === wid && c.exerciseId === eid);
 
+  let result;
   if (checked && !existing) {
-    await Store.add("completions", {
+    result = await Store.add("completions", {
       id: id(),
       userId: currentUser.id,
       workoutId: wid,
@@ -467,15 +524,44 @@ async function toggleCompletion(wid, eid, checked) {
       completedAt: new Date().toISOString()
     });
   } else if (!checked && existing) {
-    await Store.remove("completions", existing.id);
+    result = await Store.remove("completions", existing.id);
+  } else {
+    result = { success: true };
   }
 
+  if (!result?.success) {
+    toast("Não foi possível atualizar o exercício.");
+    await workoutsPage();
+    return;
+  }
   toast(checked ? "Exercício concluído!" : "Conclusão desmarcada.");
   await workoutsPage();
 }
 
+async function finishWorkout(workoutId, button) {
+  button.disabled = true;
+  try {
+    const response = await fetch("/api/store/workout-completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ studentId: currentUser.id, workoutId })
+    });
+    const data = await response.json();
+    if (!response.ok || !data.success) {
+      toast(data.error || "Não foi possível terminar o treino.");
+      button.disabled = false;
+      return;
+    }
+    toast("Treino terminado!");
+    await workoutsPage();
+  } catch {
+    toast("Erro de conexão ao terminar o treino.");
+    button.disabled = false;
+  }
+}
+
 async function messagesPage() {
-  const isAdmin = currentUser.role === "admin";
+  const isAdmin = isStaff();
   const users = await Store.all("users");
   const students = users.filter(u => u.role === "student");
   const selected = isAdmin ? ($("#message-student")?.value || students[0]?.id) : currentUser.id;
