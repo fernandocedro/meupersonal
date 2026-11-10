@@ -1,0 +1,21 @@
+name = "meu-personal"
+main = "src/index.js"
+compatibility_date = "2026-11-10"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "meu-personal-db"
+database_id = "9a4c0e62-9d18-489b-89d6-f273e20f3656"
+migrations_dir = "migrations"
+
+# Crie o bucket e habilite o binding R2 quando for implementar upload de fotos.
+# [[r2_buckets]]
+# binding = "UPLOADS"
+# bucket_name = "meu-personal-uploads"
+
+[vars]
+ALLOWED_ORIGIN = "https://SEU-DOMINIO.com"

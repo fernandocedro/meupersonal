@@ -1,0 +1,15 @@
+{
+  "name": "meu-personal",
+  "version": "0.2.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:create": "wrangler d1 create meu-personal-db",
+    "db:migrate:local": "wrangler d1 migrations apply meu-personal-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply meu-personal-db --remote"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

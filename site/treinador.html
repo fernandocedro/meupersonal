@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plataforma — Meu Personal</title>
+  <link rel="stylesheet" href="/site/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <div id="app">
+    <!-- TELA DE LOGIN DA PLATAFORMA -->
+    <main class="auth-shell" id="login-view">
+      <section class="auth-card">
+        <div class="brand-mark">MP</div>
+        <p class="eyebrow">ÁREA RESTRITA DO SISTEMA</p>
+        <h1>Acessar Conta</h1>
+        <p class="muted">Entre com suas credenciais de professor ou aluno.</p>
+        <form id="login-form">
+          <label>E-mail<input id="login-email" type="email" placeholder="seu@email.com" required autocomplete="username"></label>
+          <label>Senha<input id="login-password" type="password" placeholder="Sua senha" required autocomplete="current-password"></label>
+          <button class="btn primary full" type="submit">Entrar</button>
+          <p class="form-error" id="login-error" role="alert"></p>
+        </form>
+        <div class="demo-box">
+          <strong>Acesso de demonstração:</strong>
+          <span>Professor: admin@meupersonal.com / 123456</span>
+          <span>Aluno: aluno@meupersonal.com / 123456</span>
+        </div>
+        <div style="margin-top: 20px; text-align: center;">
+          <a href="index.html" class="btn ghost" style="font-size: 0.85rem;">← Voltar para o Site Oficial</a>
+        </div>
+      </section>
+    </main>
+
+    <!-- DASHBOARD INTERNO DA PLATAFORMA -->
+    <div id="app-view" class="hidden">
+      <aside class="sidebar">
+        <div class="sidebar-brand">
+          <span class="brand-mark small">MP</span>
+          <span>Meu Personal</span>
+        </div>
+        <div class="user-mini">
+          <div class="avatar" id="side-avatar">MP</div>
+          <div>
+            <strong id="side-name">Usuário</strong>
+            <small id="side-role">Função</small>
+          </div>
+        </div>
+        <nav id="navigation"></nav>
+        <button class="btn ghost logout" id="logout-button">Sair da Conta</button>
+        <a href="index.html" class="btn ghost" style="margin-top: 4px; text-align: center;">Ir para o Site</a>
+      </aside>
+
+      <main class="main-area">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow" id="page-eyebrow">PAINEL</p>
+            <h1 id="page-title">Visão geral</h1>
+          </div>
+          <div class="topbar-user">
+            <span id="topbar-name"></span>
+            <div class="avatar" id="top-avatar">MP</div>
+          </div>
+        </header>
+        <section id="page-content"></section>
+      </main>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <!-- Scripts Carregados na Ordem Correta -->
+  <script src="js/store.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
