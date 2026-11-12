@@ -1,0 +1,22 @@
+.student-dashboard{display:grid;gap:14px;margin-bottom:22px}
+.student-dashboard-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.student-dashboard-stats>div{display:grid;gap:6px;padding:13px;border:1px solid var(--line);border-radius:12px;background:#101611}
+.student-dashboard-stats small{color:var(--muted);font-size:.72rem}
+.student-dashboard-stats strong{font:700 1rem Manrope;color:var(--text);overflow-wrap:anywhere}
+.student-bmi-result{display:grid;gap:5px;padding:13px 15px;border:1px solid var(--line);border-radius:12px;background:#171d18}
+.student-bmi-result small{color:var(--muted);font-size:.68rem}
+.student-bmi-result strong{color:var(--text)}
+.student-bmi-result span,.student-dashboard-section>.muted{color:var(--muted);font-size:.76rem;line-height:1.45}
+.student-bmi-result.is-normal{border-color:#536e3c;background:#1a2618}
+.student-bmi-result.is-overweight{border-color:#9c7736;background:#2c2415}
+.student-bmi-result.is-obesity,.student-bmi-result.is-low{border-color:#8b5147;background:#2b1d1b}
+.student-dashboard-section{padding:14px;border:1px solid var(--line);border-radius:12px;background:#101611}
+.student-dashboard-section h4{margin:0 0 12px;color:var(--text);font-size:.86rem}
+.student-dashboard-section>.muted{margin:12px 0 0}
+.student-measurement-chart{display:grid;gap:10px}
+.student-measurement-row{display:grid;grid-template-columns:82px minmax(80px,1fr) 76px;align-items:center;gap:10px;font-size:.78rem}
+.student-measurement-row>span{color:var(--muted)}
+.student-measurement-row>strong{color:var(--text);text-align:right;font-size:.76rem}
+.student-measurement-track{height:9px;overflow:hidden;border-radius:99px;background:#293229}
+.student-measurement-track i{display:block;height:100%;border-radius:inherit;background:var(--green)}
+@media(max-width:650px){.student-dashboard-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.student-measurement-row{grid-template-columns:72px minmax(45px,1fr) 70px;gap:7px}}
